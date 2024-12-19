@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Requête avec CAPTCHA</title>
+    <script type="text/javascript" src="./captchaScript.js" defer></script>
+    <script src="https://2b17d9cec338.eu-west-3.captcha-sdk.awswaf.com/2b17d9cec338/jsapi.js" defer></script>
+</head>
+<body>
+    <h1>Application web captcha</h1>
+    
+    <form id="form">
+        <label for="numberInput">Entrez un nombre entre 1 et 1000:</label>
+        <input type="number" id="numberInput" min="1" max="1000" required />
+        <button type="submit">Envoyer</button>
+    </form>
+    <div id="output"></div>
+    <div id="captchaContainer"></div>
+</body>
+</html>

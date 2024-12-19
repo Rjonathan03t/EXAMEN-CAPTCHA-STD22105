@@ -1,70 +1,118 @@
-let captchaResolved = false; 
-let currentRequest = 0; 
-let N = 0; 
-let captchaContainer = document.getElementById("captchaContainer");
-let outputDiv = document.getElementById("output");
-
-document.getElementById("form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    N = parseInt(document.getElementById("numberInput").value);
-    if (isNaN(N) || N < 1 || N > 1000) {
+async function startSequence() {
+    const n = parseInt(document.getElementById('n').value);
+    if (isNaN(n) || n < 1 || n > 1000) {
         alert("Veuillez entrer un nombre valide entre 1 et 1000.");
         return;
     }
-    
-    document.getElementById("form").style.display = "none";
-    outputDiv.innerHTML = "";
-    currentRequest = 0;
-    executeRequests();
-});
 
-function executeRequests() {
-    if (currentRequest < N) {
-        setTimeout(() => {
-            sendRequest();
-        }, currentRequest * 1000);
+    
+    document.getElementById('form').style.display = 'none';
+
+    const outputDiv = document.getElementById('output');
+    outputDiv.innerHTML = "<p>Début de la séquence...</p>";
+
+    for (let i = 1; i <= n; i++) {
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        try {
+            const response = await fetchData();
+            if (!response) {
+                throw new Error("Erreur d'API ou CAPTCHA nécessaire");
+            }
+
+       
+            if (response.captchaRequired) {
+                outputDiv.innerHTML += "<p>Un captcha est requis. Veuillez le résoudre...</p>";
+                await solveCaptcha(outputDiv, n, i);
+                return; 
+            }
+
+            outputDiv.innerHTML += `<p>${i}. Forbidden</p>`;
+        } catch (error) {
+            outputDiv.innerHTML += `<p>Erreur au numéro ${i}: ${error.message}</p>`;
+            break; 
+        }
+    }
+
+    outputDiv.innerHTML += "<p>Fin de la séquence.</p>";
+}
+
+async function fetchData() {
+    try {
+        const response = await fetch('https://api.prod.jcloudify.com/whoami', {
+            method: 'GET', 
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+
+        if (!response.ok) {
+            if (response.status === 405) {
+                console.error('Erreur 405 : Méthode non autorisée.');
+            }
+            return null;
+        }
+
+        const textResponse = await response.text();
+        console.log(textResponse);  // Affiche la réponse brute pour le débogage
+
+        // Essayer de parser en JSON si la réponse est correcte
+        try {
+            const data = JSON.parse(textResponse);
+            return data;
+        } catch (error) {
+            console.error("Erreur de parsing JSON:", error);
+            return null;
+        }
+    } catch (error) {
+        console.error("Erreur dans l'appel API:", error);
+        return null;
     }
 }
 
-function sendRequest() {
-    fetch("https://api.prod.jcloudify.com/whoami")
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Erreur lors de l’appel à l’API');
-            }
-            return response.json();
-        })
-        .then(data => {
-            outputDiv.innerHTML += `<p>${currentRequest + 1}. Forbidden</p>`;
-            currentRequest++;
-            executeRequests();
-        })
-        .catch(error => {
-            if (error.message.includes("captcha")) {
-                displayCaptcha();
+async function solveCaptcha(outputDiv, n, i) {
+  
+    const captchaContainer = document.getElementById('captcha-container');
+    captchaContainer.innerHTML = "<p>Veuillez résoudre le CAPTCHA ci-dessous :</p>";
+
+    window.AWSWAFCaptcha.showCaptcha({
+        containerId: 'captcha-container', 
+        callback: function(result) {
+            if (result && result.success) {
+                captchaContainer.innerHTML += "<p>Captcha résolu, reprise de la séquence.</p>";
+                continueSequence(n, i);
             } else {
-                outputDiv.innerHTML += `<p>Erreur: ${error.message}</p>`;
+                captchaContainer.innerHTML += "<p>Échec de la résolution du CAPTCHA. Veuillez réessayer.</p>";
             }
-        });
-}
-
-
-function displayCaptcha() {
-    captchaContainer.innerHTML = "<p>Un CAPTCHA est nécessaire pour continuer. Résolvez-le ci-dessous.</p>";
-    AwsWafCaptcha.renderCaptcha(captchaContainer, {
-        apiKey: "VOTRE_CLE_API", 
-        onSuccess: captchaSuccess,
-        onError: captchaError
+        }
     });
 }
 
-function captchaSuccess(wafToken) {
-    captchaResolved = true;
-    captchaContainer.innerHTML = "<p>CAPTCHA résolu avec succès, la séquence va continuer...</p>";
-    currentRequest++;
-    executeRequests();
-}
+async function continueSequence(n, i) {
+    const outputDiv = document.getElementById('output');
+    for (let j = i; j <= n; j++) {
+      
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-function captchaError(error) {
-    captchaContainer.innerHTML = `<p>Erreur CAPTCHA: ${error.message}</p>`;
+        try {
+            const response = await fetchData();
+            if (!response) {
+                throw new Error("Erreur d'API ou CAPTCHA nécessaire");
+            }
+
+           
+            if (response.captchaRequired) {
+                outputDiv.innerHTML += "<p>Un captcha est requis. Veuillez le résoudre...</p>";
+                await solveCaptcha(outputDiv, n, j);
+                return; 
+            }
+
+            outputDiv.innerHTML += `<p>${j}. Forbidden</p>`;
+        } catch (error) {
+            outputDiv.innerHTML += `<p>Erreur au numéro ${j}: ${error.message}</p>`;
+            break;
+        }
+    }
 }
